@@ -2,7 +2,6 @@ package com.example.projekcik;
 
 import android.Manifest;
 import android.app.Activity;
-import android.content.ContentValues;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -11,10 +10,7 @@ import android.graphics.ImageFormat;
 import android.hardware.camera2.*;
 import android.media.Image;
 import android.media.ImageReader;
-import android.media.MediaRecorder;
-import android.net.Uri;
 import android.os.*;
-import android.provider.MediaStore;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -36,7 +32,6 @@ import com.github.mikephil.charting.data.LineDataSet;
 import com.example.projekcik.WebClient;
 
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -51,7 +46,6 @@ public class MainActivity extends Activity {
     private SurfaceHolder surfaceHolder;
     private CameraDevice cameraDevice;
     private CameraCaptureSession captureSession;
-    private MediaRecorder mediaRecorder;
     private String cameraId;
     private CameraManager cameraManager;
     private boolean isRecording = false;
@@ -74,7 +68,7 @@ public class MainActivity extends Activity {
     private TextView heartRateTextView;
     private final int fftSize = 256;
     private Double filteredValue = null;
-    private final double ALPHA = 0.2; // Im mniejsze, tym mocniejsze wygładzenie
+    private final double ALPHA = 0.2; // The smaller, the stronger the smoothing
 
 //    private SurfaceHolder greenHolder;
     ImageReader imageReader;
@@ -82,7 +76,7 @@ public class MainActivity extends Activity {
     public Button breathButton;
 
     private long lastWebSocketSendTime = 0;
-    private static final long SEND_INTERVAL_MS = 0; // wysyłka co 0 ms
+    private static final long SEND_INTERVAL_MS = 0; // send every 0 ms
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -154,7 +148,7 @@ public class MainActivity extends Activity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 setupCamera();
             } else {
-                Toast.makeText(this, "Brak uprawnień do kamery", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Camera permission not granted", Toast.LENGTH_SHORT).show();
                 finish();
             }
         }
@@ -197,7 +191,6 @@ public class MainActivity extends Activity {
                     captureSession.close();
                     captureSession = null;
                 }
-                prepareMediaRecorder();
                 if (cameraId == null) {
                     Toast.makeText(this, "Camera not detected", Toast.LENGTH_SHORT).show();
                     return;
@@ -244,14 +237,14 @@ public class MainActivity extends Activity {
             return;
         }
 
-        // Data i czas w nazwie pliku
+        // Date and time in filename
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault());
-        String timestamp = sdf.format(new Date(startTime)); // startTime = moment rozpoczęcia pomiaru
+        String timestamp = sdf.format(new Date(startTime)); // startTime = measurement start moment
         String fileName = prefix + "_" + timestamp + ".txt";
 
         try {
             File file = new File(getFilesDir(), fileName);
-            FileWriter writer = new FileWriter(file, true); // tryb dopisywania
+            FileWriter writer = new FileWriter(file, true); // append mode
             writer.append(text);
 //                    .append("\n");
             writer.flush();
@@ -279,7 +272,7 @@ public class MainActivity extends Activity {
             isBreathing = false;
         }
 
-        String logLine = timer + "; " + state + "\n"; // tu jest wiadomosc zapisywana do pliku
+        String logLine = timer + "; " + state + "\n"; // message written to file here
         Log.d("Breath", timer + " : " + state);
         appendLogToFile(logLine, 1);
     }
@@ -325,20 +318,18 @@ public class MainActivity extends Activity {
             imageReader.setOnImageAvailableListener(this::analyzeImage, null);
 
             CaptureRequest.Builder builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
-            builder.addTarget(mediaRecorder.getSurface());
             builder.addTarget(surfaceHolder.getSurface());
             builder.addTarget(imageReader.getSurface());
             builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH);
 
             cameraDevice.createCaptureSession(
-                    Arrays.asList(mediaRecorder.getSurface(), surfaceHolder.getSurface(), imageReader.getSurface()),
+                    Arrays.asList(surfaceHolder.getSurface(), imageReader.getSurface()),
                     new CameraCaptureSession.StateCallback() {
                         @Override
                         public void onConfigured(@NonNull CameraCaptureSession session) {
                             captureSession = session;
                             try {
                                 session.setRepeatingRequest(builder.build(), null, null);
-                                mediaRecorder.start();
                             } catch (CameraAccessException e) {
                                 Log.e("Recording session error: ", e.toString());
                             }
@@ -346,7 +337,7 @@ public class MainActivity extends Activity {
 
                         @Override
                         public void onConfigureFailed(@NonNull CameraCaptureSession session) {
-                            Toast.makeText(MainActivity.this, "Błąd konfiguracji sesji", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MainActivity.this, "Session configuration error", Toast.LENGTH_SHORT).show();
                         }
                     }, null
             );
@@ -376,7 +367,7 @@ public class MainActivity extends Activity {
 
                         @Override
                         public void onConfigureFailed(@NonNull CameraCaptureSession session) {
-                            Toast.makeText(MainActivity.this, "Błąd konfiguracji podglądu", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MainActivity.this, "Preview configuration error", Toast.LENGTH_SHORT).show();
                         }
                     }, null
             );
@@ -385,43 +376,15 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void prepareMediaRecorder() throws IOException {
-        mediaRecorder = new MediaRecorder();
-        mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-
-        String fn = "video_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date()) + ".mp4";
-        ContentValues v = new ContentValues();
-        v.put(MediaStore.Video.Media.DISPLAY_NAME, fn);
-        v.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
-        v.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/ppg_better");
-
-        Uri uri = getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, v);
-        if (uri == null) throw new IOException("Failed to create the video file");
-
-        FileDescriptor fd = Objects.requireNonNull(getContentResolver().openFileDescriptor(uri, "w")).getFileDescriptor();
-        mediaRecorder.setOutputFile(fd);
-
-        mediaRecorder.setVideoEncodingBitRate(10_000_000);
-        mediaRecorder.setVideoFrameRate(30);
-        mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-        mediaRecorder.setVideoSize(1280, 720);
-        mediaRecorder.setPreviewDisplay(surfaceHolder.getSurface());
-        mediaRecorder.prepare();
-    }
-
     private void stopRecording() {
         try {
             captureSession.stopRepeating();
             captureSession.abortCaptures();
-            mediaRecorder.stop();
-            mediaRecorder.release();
             cameraDevice.close();
             cameraDevice = null;
             if(imageReader != null) {
                 imageReader.close();
             }
-            Toast.makeText(this, "Video saved!", Toast.LENGTH_SHORT).show();
             greenSamples.clear();
             openCamera();
         } catch (Exception e) {
@@ -483,7 +446,7 @@ public class MainActivity extends Activity {
 
         double average = sum / (double) count;
 
-//////////// wysylanie pure sygnalu
+//////////// sending pure signal
 
         if (filteredValue == null) {
             filteredValue = average;
@@ -492,7 +455,7 @@ public class MainActivity extends Activity {
         }
         long time = System.currentTimeMillis();
 
-        if (time - lastWebSocketSendTime >= SEND_INTERVAL_MS) { //tu jest ewentualne ograniczenie, ktore jest na 0 ustawione
+        if (time - lastWebSocketSendTime >= SEND_INTERVAL_MS) { // possible limiter here, currently set to 0
             lastWebSocketSendTime = time;
             try {
                 webSocketListener.send(String.format("%d %f", time, average));
@@ -504,11 +467,11 @@ public class MainActivity extends Activity {
 
 
 
-//////////// wysylanie pure sygnalu
+//////////// sending pure signal
 
         addDataPoint(average);
 
-        // Dodaj do bufora 3 ostatnich wartości
+        // Add to the buffer of the last 3 values
         if (recentAverages.size() == 3) {
             recentAverages.removeFirst();
         }
@@ -525,7 +488,7 @@ public class MainActivity extends Activity {
 
                 if (peakTimestamps.isEmpty() || now - peakTimestamps.get(peakTimestamps.size() - 1) > 600) {
                     peakTimestamps.add(now);
-                    Log.d("HR", "Pik! " + timer);
+                    Log.d("HR", "Peak! " + timer);
                 }
             }
         }
@@ -547,10 +510,10 @@ public class MainActivity extends Activity {
             long currentTime = System.currentTimeMillis(); //now
             long elapsed = currentTime - startTime;
             String bpmLog = elapsed + "; " + bpm + "\n";
-            appendLogToFile(bpmLog, 2); // logtype = 2 dla pulsu
+            appendLogToFile(bpmLog, 2); // logtype = 2 for pulse
 
 
-//////////////////////// zamiana bpm na average
+//////////////////////// convert bpm to average
 
 //            long webElapsed = currentTime - webSocketSendCounter; // time since last send
 //            if (webElapsed >= 1000) {
@@ -563,7 +526,7 @@ public class MainActivity extends Activity {
 //                }
 //            }
 
-//////////////////////// zamiana bpm na average
+//////////////////////// convert bpm to average
 
             runOnUiThread(() -> heartRateTextView.setText("HR: " + bpm + " BPM"));
         } else {
@@ -585,7 +548,7 @@ public class MainActivity extends Activity {
 
         long now = System.currentTimeMillis();
 
-        // Usuń stare piki starsze niż 10 sekund
+        // Remove peaks older than 10 seconds
         while (peakTimestamps.size() > 1 && now - peakTimestamps.get(0) > 10_000) {
             peakTimestamps.remove(0);
         }
@@ -595,7 +558,7 @@ public class MainActivity extends Activity {
         List<Long> intervals = new ArrayList<>();
         for (int i = 1; i < peakTimestamps.size(); i++) {
             long diff = peakTimestamps.get(i) - peakTimestamps.get(i - 1);
-        //    if (diff >= 250) { // filtruj bardzo krótkie odstępy (fałszywe piki)
+        //    if (diff >= 250) { // filter very short gaps (false peaks)
                 intervals.add(diff);
         //    }
         }
@@ -614,7 +577,7 @@ public class MainActivity extends Activity {
         int bpm = (int)(60000.0 / medianInterval);
 
         if (bpm < 45 || bpm > 180) {
-            Log.w("HR", "Zły pomiar BPM: " + bpm + " – ignoruję.");
+            Log.w("HR", "Bad BPM measurement: " + bpm + " - ignoring.");
             return 0;
         }
 
