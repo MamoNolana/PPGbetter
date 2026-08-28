@@ -421,7 +421,7 @@ public class MainActivity extends Activity {
             if(imageReader != null) {
                 imageReader.close();
             }
-            Toast.makeText(this, "Wideo zapisane!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Video saved!", Toast.LENGTH_SHORT).show();
             greenSamples.clear();
             openCamera();
         } catch (Exception e) {
