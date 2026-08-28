@@ -5,8 +5,8 @@
     <string name="Data2">Frame Size</string>
     <string name="Data3">AVG</string>
     <string name="Data4">Calculating</string>
-    <string name="measurement_button_start">Rozpocznij nagrywanie</string>
-    <string name="measurement_button_end">Zatrzymaj nagrywanie</string>
+    <string name="measurement_button_start">Start recording</string>
+    <string name="measurement_button_end">Stop recording</string>
     <string name="measurement_button_start_wd">Wdech (Inhale)</string>
     <string name="measurement_button_end_wy">Wydech (Exhale)</string>
 </resources>
