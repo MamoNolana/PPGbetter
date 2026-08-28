@@ -199,7 +199,7 @@ public class MainActivity extends Activity {
                 }
                 prepareMediaRecorder();
                 if (cameraId == null) {
-                    Toast.makeText(this, "Nie wykryto kamery", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Camera not detected", Toast.LENGTH_SHORT).show();
                     return;
                 }
                 startTime = System.currentTimeMillis();
@@ -209,7 +209,7 @@ public class MainActivity extends Activity {
                 button.setText(R.string.measurement_button_end);
                 isRecording = true;
             } catch (Exception e) {
-                Toast.makeText(this, "Błąd nagrywania", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Write error", Toast.LENGTH_SHORT).show();
                 Log.e("Start recording error: ", e.toString());
             }
             try {
@@ -397,7 +397,7 @@ public class MainActivity extends Activity {
         v.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/ppg_better");
 
         Uri uri = getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, v);
-        if (uri == null) throw new IOException("Nie można utworzyć pliku video");
+        if (uri == null) throw new IOException("Failed to create the video file");
 
         FileDescriptor fd = Objects.requireNonNull(getContentResolver().openFileDescriptor(uri, "w")).getFileDescriptor();
         mediaRecorder.setOutputFile(fd);
